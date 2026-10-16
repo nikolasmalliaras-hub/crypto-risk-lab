@@ -2,7 +2,7 @@
 
 How risky is the crypto market really, where does that risk come from, and what happens to it in a crash?
 
-This project measures **volatility** and **correlation structure** across 30 major coins, using public data only (Binance daily candles since 2019, Deribit's DVOL implied-volatility index since 2021). Every forecast is made walk-forward, using only data available at the time.
+This project measures **volatility**, **correlation structure** and **tail risk** across 30 major coins, using public data only (Binance daily candles since 2019, Deribit's DVOL implied-volatility index since 2021). Every forecast is made walk-forward, using only data available at the time.
 
 ## Key findings
 
@@ -14,6 +14,8 @@ This project measures **volatility** and **correlation structure** across 30 maj
 | 4 | **GARCH beats a simple 30-day window, but not a simple EWMA.** | Diebold-Mariano t (QLIKE, range-based proxy) = −2.5 (BTC) and −2.4 (ETH) vs rolling window; −1.0 and −1.4 vs EWMA |
 | 5 | **Options have usually priced more volatility than was delivered, but that premium is fading.** | DVOL above next-30-day realized by 8.4 vol points on average (Newey-West t 5.4); 18 points in 2021, 6-7 in 2023-2025, about zero in 2026 |
 | 6 | **"High beta" does not mean "mostly BTC".** Alts move about 1.2× BTC, yet BTC explains only about 40% of their daily variance. | Median beta 1.18, median R² 0.39 (ETH 0.68, TRX 0.27) |
+| 7 | **Normal-distribution risk models fail on crypto, even with up-to-date volatility.** | 99% VaR breached 1.5 to 2.2 times more often than promised (Kupiec p < 0.03 in all 6 cases); losses beyond VaR 14-24% worse than their Expected Shortfall predicted |
+| 8 | **Volatility scaling plus an empirical or EVT tail gets it right.** | Filtered historical and EWMA + EVT pass the breach-count test for all three portfolios, with no significant clustering, and 97.5% Expected Shortfall within ±6% |
 
 ## 1. Volatility
 
@@ -85,12 +87,60 @@ Exceedance correlation (Longin and Solnik, 2001) measures correlation only on da
 
 ![Correlation map](results/09_correlation_heatmap.png)
 
+## 3. Tail risk: VaR and Expected Shortfall
+
+Value at Risk (VaR) answers *"how much can I lose on a bad day?"*: with 99% confidence, tomorrow's loss will not exceed X. Expected Shortfall (ES) answers the follow-up: *"when that bad day comes, how much do I lose on average?"* Six models forecast both, one day ahead, for BTC, ETH and an equal-weight basket of 30 coins, using a 500-day window and only data available at the time. Each forecast is then checked against what happened.
+
+### The tails
+
+![QQ plot](results/10_btc_qq_plot.png)
+
+| | BTC | ETH | Basket |
+|---|---|---|---|
+| Down days beyond 4 standard deviations (volatility-adjusted) | 14 | 9 | 7 |
+| Expected under a normal distribution | 0.09 | 0.09 | 0.07 |
+| Down days beyond 5 standard deviations | 5 | 4 | 2 |
+| Left-tail index (Hill estimator) | 2.6 | 2.6 | 2.7 |
+
+A tail index below 4 means the fourth moment (kurtosis) does not exist, which agrees with the Student-t fits in Part 1. The isolated point at −15 standard deviations is 12 March 2020.
+
+### Do the models tell the truth?
+
+![VaR backtest](results/11_btc_var_backtest.png)
+
+![Breach ratio by model](results/12_var_breach_ratio_by_model.png)
+
+99% VaR, breaches as a multiple of what the model promised (Kupiec p-value in brackets):
+
+| Model | BTC | ETH | Basket |
+|---|---|---|---|
+| Normal, rolling window | 1.49× (0.03) | 1.71× (0.002) | 1.61× (0.02) |
+| EWMA + normal | 2.09× (0.00) | 2.09× (0.00) | 2.17× (0.00) |
+| Historical simulation | 0.94× (0.76) | 1.41× (0.06) | 0.93× (0.77) |
+| EWMA + Student-t | 1.58× (0.01) | 1.15× (0.47) | 1.43× (0.11) |
+| Filtered historical | 1.24× (0.27) | 1.24× (0.27) | 0.99× (0.97) |
+| **EWMA + EVT** | **1.15× (0.47)** | **1.07× (0.75)** | **1.12× (0.65)** |
+
+What stands out:
+
+- **Making a normal model react faster makes it worse.** EWMA + normal breaches about twice as often as promised. Tracking volatility is not enough when the shape of the tail is wrong.
+- **Historical simulation gets the count right but the timing wrong.** For ETH and the basket its breaches cluster (Christoffersen p = 0.01 and 0.007): it adapts slowly, so bad days arrive in groups exactly when it is most needed.
+- **Under the Basel traffic light**, EWMA + normal sits in the yellow zone in 73-81% of 250-day windows, and the rolling normal model hits red in 12% of windows for ETH and the basket. EWMA + EVT never reaches red (worst window: 6-7 breaches).
+
+### When the bad day comes
+
+![Expected Shortfall check](results/13_expected_shortfall_check.png)
+
+On days when 97.5% VaR was breached, normal models under-predicted the average loss by 15-23% (t-stats 3.2 to 4.7). Filtered historical and EVT were within ±6%, with no significant bias. Student-t models went the other way and slightly overstated it for BTC and ETH.
+
+The full tables, including the 97.5% level, are in [`results/tail_summary.md`](results/tail_summary.md).
+
 ## What this means for risk management
 
 1. **Count bets, not coins.** Risk limits should be set on exposure to the common factor, not on the number of positions.
 2. **Use stress correlations, not average correlations.** A portfolio sized with average correlations will be under-hedged in a sell-off.
 3. **Size positions by volatility, and update it.** Volatility is persistent and forecastable; a simple EWMA captures most of what is available.
-4. **Normal-distribution risk models understate crypto tail risk.** Fat tails (excess kurtosis above 10 for most coins) and asymmetric correlation both work against them.
+4. **Do not use normal-distribution VaR for crypto.** It breaches 1.5-2× too often and under-predicts the size of the bad days. Combine a volatility filter with an empirical or EVT tail, and backtest it continuously.
 
 ## Method notes and limits
 
@@ -98,17 +148,19 @@ Exceedance correlation (Longin and Solnik, 2001) measures correlation only on da
 - Walk-forward forecasts only; t-stats use Newey-West standard errors where observations overlap.
 - **Survivorship bias:** only coins still listed on Binance today are included.
 - DVOL data starts in March 2021; the 2026 figures cover a partial year.
+- VaR/ES backtests: Kupiec (1995) for breach counts, Christoffersen (1998) for clustering, McNeil and Frey (2000) for conditional EVT and the ES check.
 - Effective bets use the diversification ratio squared (Choueifaty and Coignard, 2008), an approximation.
 
 ## Run it
 
 ```bash
 pip install -r requirements.txt
-python crypto_risk_lab.py               # downloads public data, writes charts and summary to results/
-python crypto_risk_lab.py --synthetic   # quick check on fake data
+python crypto_risk_lab.py               # Parts 1 and 2: volatility and correlation (downloads public data)
+python tail_risk.py                     # Part 3: VaR / ES models and backtests (uses the same data cache)
+python crypto_risk_lab.py --synthetic   # quick check on fake data (also works for tail_risk.py)
 ```
 
-All numbers in this README come from [`results/summary.md`](results/summary.md), which the script regenerates on every run.
+All numbers in this README come from [`results/summary.md`](results/summary.md) and [`results/tail_summary.md`](results/tail_summary.md), which the scripts regenerate on every run.
 
 ---
 *Code written with AI assistance. Research design, interpretation and conclusions are my own.*
