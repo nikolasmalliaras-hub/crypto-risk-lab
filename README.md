@@ -9,7 +9,7 @@ This project measures **volatility** and **correlation structure** across 30 maj
 | # | Finding | Evidence |
 |---|---|---|
 | 1 | **A basket of 30 coins behaves like about 1.5 independent bets.** Holding many coins is not diversification. | Effective number of bets (diversification ratio²), median 1.46 over rolling 90-day windows; one common factor explains 61% of all variance |
-| 2 | **Correlation rises in sell-offs and falls in rallies.** On the worst 10% of days, alts move with BTC far more than a normal model predicts. | Exceedance correlation 0.59 on down days vs 0.26 expected; 0.18 on up days |
+| 2 | **Correlation rises in sell-offs and falls in rallies.** On the worst 10% of days, alts move with BTC far more than a normal model predicts. | Exceedance correlation 0.59 on down days vs 0.26 expected; 0.18 on up days. Down-minus-up gap 0.40, block-bootstrap 95% CI [0.22, 0.51] |
 | 3 | **The direction of BTC is unpredictable, the size of its moves is not.** Volatility clusters for weeks. | Autocorrelation of returns −0.07, of absolute returns +0.17; Ljung-Box p ≈ 10⁻⁶ |
 | 4 | **GARCH beats a simple 30-day window, but not a simple EWMA.** | Diebold-Mariano t (QLIKE, range-based proxy) = −2.5 (BTC) and −2.4 (ETH) vs rolling window; −1.0 and −1.4 vs EWMA |
 | 5 | **Options have usually priced more volatility than was delivered, but that premium is fading.** | DVOL above next-30-day realized by 8.4 vol points on average (Newey-West t 5.4); 18 points in 2021, 6-7 in 2023-2025, about zero in 2026 |
@@ -44,7 +44,16 @@ GARCH(1,1) was refitted every 30 days on past data only (71 refits, 2,114 out-of
 
 - GARCH is **significantly better than the rolling window** for both BTC and ETH.
 - GARCH is **not significantly better than EWMA**. In practice, the simpler model is good enough.
-- BTC volatility shocks have a half-life of about 17 days (persistence 0.96).
+- In the latest walk-forward fit, a BTC volatility shock has a half-life of about 17 days (persistence 0.96).
+
+### Fat tails and slow-moving volatility, coin by coin
+
+Fitting GARCH with Student-t errors to each coin's full history gives two consistent results:
+
+- **Tails are extremely heavy.** The fitted degrees of freedom are 3 to 5 for almost every coin (BTC 3.0, ETH 3.2). Below 4, a distribution does not even have a finite kurtosis, so risk models built on the normal distribution are structurally wrong for crypto.
+- **Persistence is close to 1 over the full sample** (BTC, BNB, DOGE and TRX hit the upper bound). This is a known effect: when the long-run level of volatility shifts, as it did with BTC falling from about 80% to about 45% annualized, a single GARCH model reads the shift as near-permanent persistence (Lamoureux and Lastrapes, 1990). That is why the forecasts above are refitted on a rolling basis rather than fitted once.
+
+Full table: [`results/summary.md`](results/summary.md).
 
 ### Implied vs realized
 
@@ -68,7 +77,7 @@ One common factor ("the crypto market") explains 61% of the variance of all 30 c
 
 ![Exceedance correlation](results/08_exceedance_correlation.png)
 
-Exceedance correlation (Longin and Solnik, 2001) measures correlation only on days when both coins are beyond a threshold. The grey line is what a normal distribution with the same overall correlation would give. On the downside, crypto correlations are more than twice that benchmark; on the upside they are at or below it. **Correlation is asymmetric: it is highest exactly when prices are falling.**
+Exceedance correlation (Longin and Solnik, 2001) measures correlation only on days when both coins are beyond a threshold. The grey line is what a normal distribution with the same overall correlation would give. On the downside, crypto correlations are more than twice that benchmark; on the upside they are at or below it. **Correlation is asymmetric: it is highest exactly when prices are falling.** A moving-block bootstrap (10-day blocks, 300 resamples) puts the down-minus-up gap at 0.40 with a 95% interval of 0.22 to 0.51; none of the resamples came out below zero.
 
 ### Market risk vs coin-specific risk
 
