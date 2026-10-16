@@ -1,0 +1,32 @@
+# Secrets: NEVER upload
+.env
+*.key
+*.pem
+secrets*
+config_private*
+wallet*
+
+# Bot state and private results
+state/
+*_state.json
+logs/
+*.log
+
+# Large data
+data/
+cache*/
+*.csv
+*.parquet
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Risk lab data cache
+risk_cache/
